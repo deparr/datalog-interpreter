@@ -37,4 +37,5 @@ cmake-build-debug/
 eval
 input.txt
 CMakeLists.txt
+makefile
 
