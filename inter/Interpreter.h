@@ -5,6 +5,7 @@
 #include "Database.h"
 #include "../parser/Predicate.h"
 #include "../parser/Rule.h"
+#include "../Graph.h"
 
 
 class Interpreter {

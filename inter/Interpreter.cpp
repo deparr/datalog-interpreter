@@ -20,6 +20,11 @@ void Interpreter::InterpretProgram() {
     }
 
 
+    // Graph creation from rules
+    Graph depGraph(*rules);
+    std::cout << "Dependency Graph\n" << depGraph;
+
+
 	// Evaluate each rule using relational algebra
     bool terminate = false;
     int passes = 0;
