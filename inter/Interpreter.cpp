@@ -23,61 +23,54 @@ void Interpreter::InterpretProgram() {
     // Graph creation from rules
     Graph depGraph(*rules);
     std::cout << "Dependency Graph\n" << depGraph;
+    Graph revGraph = depGraph.Reverse();
+
+    // Do a dfs forest to get postorder and SCCs
+    std::deque<int> postorder;
+    revGraph.dfsForest(postorder);
+    std::vector<std::set<int> > SCCs;
+    depGraph.dfsForest(postorder, SCCs);
 
 
-	// Evaluate each rule using relational algebra
-    bool terminate = false;
-    int passes = 0;
+    // Evaluate rules based on found SCCs
     std::cout << "Rule Evaluation\n";
-    do {
-        terminate = false;
-        for (Rule rule : *rules) {
+    for (std::set<int> scc : SCCs) {
 
-            std::cout << rule;
-            Relation* relptr = nullptr;
-
-            // Branch if rule is multi rule
-            if (rule.IsMultiRule()) {
-                std::vector<Relation*> relptrs;
-                for (size_t i = 0; i < rule.Size(); i++) {
-                    relptrs.push_back(EvaluatePredicate(rule[i]));
-                }
-
-
-                relptr = relptrs[0];
-                for (size_t i = 1; i < relptrs.size(); i++) {
-                    relptr = relptr->Join(relptrs[i]);
-                }
-
-
-            }
-
-            // Branch for single rules
-            else {
-                relptr = EvaluatePredicate(rule[0]);
-            }
-
-
-            // Project columns that appear in head predicate
-            std::vector<std::string> headCols;
-            for (size_t i = 0; i < rule.GetHeadPred().ListSize(); i++) {
-                headCols.push_back(rule.GetHeadPred().GetParameter(i));
-            }
-            *relptr = relptr->Project(headCols);
-
-    
-
-            // Union with the matching relation in database
-            if (relptr->Union(database->GetRelation(*rule.GetHeadPred()))) { terminate = true; }
-
-            // MIGHT NOT NEED THIS, OR IT MIHT NOT EVEN WORK
-            // for (Relation* relptr : relptrs) delete relptr;
+        std::cout << "SCC: ";
+        std::set<int>::iterator it = scc.begin();
+        while (it != scc.end()) {
+            std::cout << "R" << *it++;
+            if (it != scc.end()) std::cout << ",";
         }
-        passes += 1;
-    } while (terminate);
+        std::cout << std::endl;
 
-    std::cout << "\nSchemes populated after " << passes << " passes through the Rules.\n\n";
-	
+        if (scc.size() == 1 && !depGraph.CheckDependence(*scc.begin(), *scc.begin())) {
+            EvaluateRule((*rules)[*scc.begin()]);
+            std::cout << "1 passes: R" << *scc.begin() << std::endl;
+        }
+        else {
+            int passes = 0;
+            bool terminate = false;
+            do {
+		        terminate = false;
+                for (int ruleIndex : scc) {
+                    if (EvaluateRule((*rules)[ruleIndex])) terminate = true;
+                }
+                passes += 1;
+            } while (terminate);
+
+            std::cout << passes << " passes: ";
+            std::set<int>::iterator it = scc.begin();
+            while (it != scc.end()) {
+                std::cout << "R" << *it++;
+                if (it != scc.end()) std::cout << ",";
+            }
+            std::cout << std::endl;
+        }
+    }
+    std::cout << std::endl;
+
+
     // Evaluate each query using relational operations
     std::cout << "Query Evaluation\n";
     for (Predicate query : *queries) {
@@ -127,4 +120,43 @@ Relation* Interpreter::EvaluatePredicate(const Predicate& pred) {
     *relptr = relptr->Rename(varNames);
 
     return relptr;
+}
+
+bool Interpreter::EvaluateRule(Rule& rule) {
+    std::cout << rule;
+    Relation* relptr = nullptr;
+
+    // Branch if rule is multi rule
+    if (rule.IsMultiRule()) {
+        std::vector<Relation*> relptrs;
+        for (size_t i = 0; i < rule.Size(); i++) {
+            relptrs.push_back(EvaluatePredicate(rule[i]));
+        }
+
+
+        relptr = relptrs[0];
+        for (size_t i = 1; i < relptrs.size(); i++) {
+            relptr = relptr->Join(relptrs[i]);
+        }
+
+
+    }
+
+    // Branch for single rules
+    else {
+        relptr = EvaluatePredicate(rule[0]);
+    }
+
+
+    // Project columns that appear in head predicate
+    std::vector<std::string> headCols;
+    for (size_t i = 0; i < rule.GetHeadPred().ListSize(); i++) {
+        headCols.push_back(rule.GetHeadPred().GetParameter(i));
+    }
+    *relptr = relptr->Project(headCols);
+
+
+
+    // Union with the matching relation in database
+    return relptr->Union(database->GetRelation(*rule.GetHeadPred()));
 }

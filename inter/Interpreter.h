@@ -2,6 +2,7 @@
 #define INTERPRETER_H
 
 #include <iostream>
+#include <deque>
 #include "Database.h"
 #include "../parser/Predicate.h"
 #include "../parser/Rule.h"
@@ -18,6 +19,7 @@ private:
 
     // Helpers`
     Relation* EvaluatePredicate(const Predicate& pred);
+    bool EvaluateRule(Rule& rule);
 
 public:
     Interpreter(std::vector<Predicate>* newSchemes, std::vector<Predicate>* newFacts,
